@@ -24,9 +24,18 @@ const app = express();
 const server = http.createServer(app);
 
 // ─── Socket.IO ────────────────────────────────────────────────
+const allowedOrigins = [
+  'https://emergencymedicalsystem.vercel.app'
+];
 const io = new Server(server, {
   cors: {
-    origin: process.env.CLIENT_URL || 'https://emergencymedicalsystem.vercel.app',
+    origin: function (origin, callback) {
+      if (!origin) return callback(null, true);
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+      return callback(new Error('Socket.IO CORS blocked: ' + origin));
+    },
     methods: ['GET', 'POST'],
     credentials: true
   },
