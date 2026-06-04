@@ -23,18 +23,27 @@ const hospitalRoutes = require('./routes/hospitalRoutes');
 const app = express();
 const server = http.createServer(app);
 
-// ─── Socket.IO ────────────────────────────────────────────────
+//
+// 🚑 FIX 1: SINGLE SOURCE OF TRUTH FOR ORIGINS
+//
 const allowedOrigins = [
   'https://emergencymedicalsystem.vercel.app'
 ];
+
+//
+// 🚑 FIX 2: SOCKET.IO CORS (STRICT + SAFE)
+//
 const io = new Server(server, {
   cors: {
     origin: function (origin, callback) {
       if (!origin) return callback(null, true);
+
       if (allowedOrigins.includes(origin)) {
         return callback(null, true);
       }
-      return callback(new Error('Socket.IO CORS blocked: ' + origin));
+
+      console.log("❌ Socket.IO blocked origin:", origin);
+      return callback(new Error("Socket.IO CORS blocked"));
     },
     methods: ['GET', 'POST'],
     credentials: true
@@ -46,129 +55,125 @@ const io = new Server(server, {
 
 app.set('io', io);
 
-// ─── Database ─────────────────────────────────────────────────
+//
+// 🚑 DATABASE
+//
 connectDB();
 
-// ─── Core Middleware ──────────────────────────────────────────
-app.use(helmet({
-  crossOriginEmbedderPolicy: false,
-  contentSecurityPolicy: false
-}));
-
+//
+// 🚑 FIX 3: EXPRESS CORS (MATCH SOCKET.IO EXACTLY)
+//
 app.use(cors({
-  origin: process.env.CLIENT_URL || 'https://emergencymedicalsystem.vercel.app',
+  origin: function (origin, callback) {
+    if (!origin) return callback(null, true);
+
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+
+    console.log("❌ Express blocked origin:", origin);
+    return callback(new Error("CORS blocked"));
+  },
   credentials: true,
   methods: ['GET','POST','PUT','DELETE','PATCH','OPTIONS'],
   allowedHeaders: ['Content-Type','Authorization','X-Requested-With']
+}));
+
+//
+// SECURITY + LOGGING
+//
+app.use(helmet({
+  crossOriginEmbedderPolicy: false,
+  contentSecurityPolicy: false
 }));
 
 app.use(morgan('dev'));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// ─── Rate Limiting ────────────────────────────────────────────
+//
+// RATE LIMITING
+//
 const globalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 200,
-  message: { success: false, message: 'Too many requests. Please try again later.' },
-  standardHeaders: true,
-  legacyHeaders: false
+  max: 200
 });
 
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 15,
-  message: { success: false, message: 'Too many auth attempts. Please wait 15 minutes.' }
+  max: 15
 });
 
 const emergencyLimiter = rateLimit({
   windowMs: 5 * 60 * 1000,
-  max: 10,
-  message: { success: false, message: 'Too many emergency requests in a short time.' }
+  max: 10
 });
 
 app.use('/api/', globalLimiter);
 app.use('/api/auth', authLimiter);
 app.use('/api/emergency', emergencyLimiter);
 
-// ─── Static Files ─────────────────────────────────────────────
+//
+// STATIC FILES
+//
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-// ─── API Routes ───────────────────────────────────────────────
-app.use('/api/auth',       authRoutes);
-app.use('/api/emergency',  emergencyRoutes);
-app.use('/api/admin',      adminRoutes);
-app.use('/api/users',      userRoutes);
+//
+// ROUTES
+//
+app.use('/api/auth', authRoutes);
+app.use('/api/emergency', emergencyRoutes);
+app.use('/api/admin', adminRoutes);
+app.use('/api/users', userRoutes);
 app.use('/api/ambulances', ambulanceRoutes);
-app.use('/api/hospitals',  hospitalRoutes);
+app.use('/api/hospitals', hospitalRoutes);
 
-// ─── Health Check ─────────────────────────────────────────────
+//
+// HEALTH CHECK
+//
 app.get('/api/health', (req, res) => {
   res.json({
     success: true,
     message: '🚑 EMS Kenya API is running',
-    version: '1.0.0',
     environment: process.env.NODE_ENV || 'development',
     timestamp: new Date().toISOString(),
     uptime: `${Math.round(process.uptime())}s`
   });
 });
 
-// ─── Socket.IO Real-time Engine ───────────────────────────────
+//
+// SOCKET ENGINE
+//
 const connectedClients = new Map();
 
 io.on('connection', (socket) => {
   console.log(`🔌 Socket connected: ${socket.id}`);
   connectedClients.set(socket.id, { connectedAt: new Date() });
 
-  // ── Room Joins ──
-  socket.on('join_emergency', (emergencyId) => {
-    socket.join(`emergency_${emergencyId}`);
-    console.log(`📍 Socket ${socket.id} joined emergency_${emergencyId}`);
+  socket.on('join_emergency', (id) => {
+    socket.join(`emergency_${id}`);
   });
 
-  socket.on('leave_emergency', (emergencyId) => {
-    socket.leave(`emergency_${emergencyId}`);
-  });
-
-  socket.on('join_emt', (emtId) => {
-    socket.join(`emt_${emtId}`);
-    connectedClients.set(socket.id, { ...connectedClients.get(socket.id), emtId });
-    console.log(`🚑 EMT ${emtId} joined their room`);
+  socket.on('join_emt', (id) => {
+    socket.join(`emt_${id}`);
   });
 
   socket.on('join_admin', () => {
     socket.join('admin_room');
-    console.log(`🛡️  Admin joined admin_room`);
   });
 
-  // ── Live Location Updates from Ambulance ──
   socket.on('ambulance_location_update', (data) => {
-    // Broadcast to anyone tracking this emergency
     if (data.emergencyId) {
-      socket.to(`emergency_${data.emergencyId}`).emit('ambulance_moved', {
-        coordinates: data.coordinates,
-        heading: data.heading,
-        speed: data.speed,
-        timestamp: new Date()
-      });
+      socket.to(`emergency_${data.emergencyId}`).emit('ambulance_moved', data);
     }
-    // Broadcast to admin map
-    io.to('admin_room').emit('ambulance_location', {
-      id: data.ambulanceId,
-      registrationNumber: data.registrationNumber,
-      coordinates: data.coordinates,
-      status: data.status,
-      timestamp: new Date()
-    });
+
+    io.to('admin_room').emit('ambulance_location', data);
   });
 
-  // ── EMT Status Updates ──
   socket.on('emt_status_update', (data) => {
     io.to('admin_room').emit('emt_status_changed', data);
   });
 
-  // ── Patient SOS from native app (USSD/SMS gateway) ──
   socket.on('ussd_emergency', (data) => {
     io.to('admin_room').emit('new_emergency', {
       ...data,
@@ -177,22 +182,14 @@ io.on('connection', (socket) => {
     });
   });
 
-  // ── Ping / keep alive ──
-  socket.on('ping_client', () => {
-    socket.emit('pong_server', { timestamp: new Date() });
-  });
-
-  socket.on('disconnect', (reason) => {
+  socket.on('disconnect', () => {
     connectedClients.delete(socket.id);
-    console.log(`🔌 Socket ${socket.id} disconnected: ${reason}`);
-  });
-
-  socket.on('error', (err) => {
-    console.error(`Socket error for ${socket.id}:`, err.message);
   });
 });
 
-// Expose connected count
+//
+// CONNECTIONS MONITOR
+//
 app.get('/api/health/connections', (req, res) => {
   res.json({
     success: true,
@@ -201,37 +198,24 @@ app.get('/api/health/connections', (req, res) => {
   });
 });
 
-// ─── Error Handling ───────────────────────────────────────────
+//
+// ERROR HANDLERS
+//
 app.use(notFound);
 app.use(errorHandler);
 
-// ─── Graceful Shutdown ────────────────────────────────────────
-process.on('SIGTERM', () => {
-  console.log('SIGTERM received. Shutting down gracefully...');
-  server.close(() => {
-    console.log('Server closed');
-    process.exit(0);
-  });
-});
-
-process.on('unhandledRejection', (err) => {
-  console.error('Unhandled Promise Rejection:', err.message);
-  server.close(() => process.exit(1));
-});
-
-// ─── Start Server ─────────────────────────────────────────────
+//
+// SERVER START
+//
 const PORT = process.env.PORT || 5000;
+
 server.listen(PORT, () => {
   console.log(`
-  ╔═══════════════════════════════════════╗
-  ║   🚑  EMS KENYA — BACKEND SERVER      ║
-  ╠═══════════════════════════════════════╣
-  ║  Port:        ${PORT}                     ║
-  ║  Environment: ${(process.env.NODE_ENV || 'development').padEnd(12)} ║
-  ║  API:         /api/*                  ║
-  ║  Socket.IO:   Active                  ║
-  ╚═══════════════════════════════════════╝
+🚑 EMS KENYA BACKEND RUNNING
+Port: ${PORT}
+Environment: ${process.env.NODE_ENV || 'development'}
   `);
+
   startCronJobs();
 });
 
