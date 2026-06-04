@@ -24,27 +24,18 @@ const app = express();
 const server = http.createServer(app);
 
 //
-// 🚑 FIX 1: SINGLE SOURCE OF TRUTH FOR ORIGINS
+// 🚑 ALLOWED ORIGINS (PRODUCTION SAFE)
 //
 const allowedOrigins = [
   'https://emergencymedicalsystem.vercel.app'
 ];
 
 //
-// 🚑 FIX 2: SOCKET.IO CORS (STRICT + SAFE)
+// 🚑 SOCKET.IO SETUP
 //
 const io = new Server(server, {
   cors: {
-    origin: function (origin, callback) {
-      if (!origin) return callback(null, true);
-
-      if (allowedOrigins.includes(origin)) {
-        return callback(null, true);
-      }
-
-      console.log("❌ Socket.IO blocked origin:", origin);
-      return callback(new Error("Socket.IO CORS blocked"));
-    },
+    origin: allowedOrigins,
     methods: ['GET', 'POST'],
     credentials: true
   },
@@ -61,7 +52,36 @@ app.set('io', io);
 connectDB();
 
 //
-// 🚑 FIX 3: EXPRESS CORS (MATCH SOCKET.IO EXACTLY)
+// 🚑 SECURITY MIDDLEWARE
+//
+app.use(helmet({
+  crossOriginEmbedderPolicy: false,
+  contentSecurityPolicy: false
+}));
+
+//
+// 🚑 CRITICAL FIX: CORS MUST BE FIRST
+//
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+
+  if (allowedOrigins.includes(origin)) {
+    res.header('Access-Control-Allow-Origin', origin);
+  }
+
+  res.header('Access-Control-Allow-Credentials', 'true');
+  res.header('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,PATCH,OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
+
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(204);
+  }
+
+  next();
+});
+
+//
+// OPTIONAL: CORS LIB (SAFE FALLBACK)
 //
 app.use(cors({
   origin: function (origin, callback) {
@@ -71,22 +91,14 @@ app.use(cors({
       return callback(null, true);
     }
 
-    console.log("❌ Express blocked origin:", origin);
-    return callback(new Error("CORS blocked"));
+    return callback(new Error('CORS blocked: ' + origin));
   },
-  credentials: true,
-  methods: ['GET','POST','PUT','DELETE','PATCH','OPTIONS'],
-  allowedHeaders: ['Content-Type','Authorization','X-Requested-With']
+  credentials: true
 }));
 
 //
-// SECURITY + LOGGING
+// LOGGING + BODY PARSING
 //
-app.use(helmet({
-  crossOriginEmbedderPolicy: false,
-  contentSecurityPolicy: false
-}));
-
 app.use(morgan('dev'));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
@@ -94,24 +106,20 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 //
 // RATE LIMITING
 //
-const globalLimiter = rateLimit({
+app.use('/api/', rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 200
-});
+}));
 
-const authLimiter = rateLimit({
+app.use('/api/auth', rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 15
-});
+}));
 
-const emergencyLimiter = rateLimit({
+app.use('/api/emergency', rateLimit({
   windowMs: 5 * 60 * 1000,
   max: 10
-});
-
-app.use('/api/', globalLimiter);
-app.use('/api/auth', authLimiter);
-app.use('/api/emergency', emergencyLimiter);
+}));
 
 //
 // STATIC FILES
@@ -134,7 +142,7 @@ app.use('/api/hospitals', hospitalRoutes);
 app.get('/api/health', (req, res) => {
   res.json({
     success: true,
-    message: '🚑 EMS Kenya API is running',
+    message: '🚑 EMS Kenya API Running',
     environment: process.env.NODE_ENV || 'development',
     timestamp: new Date().toISOString(),
     uptime: `${Math.round(process.uptime())}s`
@@ -147,7 +155,7 @@ app.get('/api/health', (req, res) => {
 const connectedClients = new Map();
 
 io.on('connection', (socket) => {
-  console.log(`🔌 Socket connected: ${socket.id}`);
+  console.log(`🔌 Connected: ${socket.id}`);
   connectedClients.set(socket.id, { connectedAt: new Date() });
 
   socket.on('join_emergency', (id) => {
@@ -205,7 +213,7 @@ app.use(notFound);
 app.use(errorHandler);
 
 //
-// SERVER START
+// START SERVER
 //
 const PORT = process.env.PORT || 5000;
 
