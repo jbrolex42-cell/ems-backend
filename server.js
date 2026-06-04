@@ -26,7 +26,7 @@ const server = http.createServer(app);
 // ─── Socket.IO ────────────────────────────────────────────────
 const io = new Server(server, {
   cors: {
-    origin: process.env.CLIENT_URL || 'http://localhost:5173',
+    origin: process.env.CLIENT_URL || 'https://emergencymedicalsystem.vercel.app',
     methods: ['GET', 'POST'],
     credentials: true
   },
@@ -47,7 +47,7 @@ app.use(helmet({
 }));
 
 app.use(cors({
-  origin: process.env.CLIENT_URL || 'http://localhost:5173',
+  origin: process.env.CLIENT_URL || 'https://emergencymedicalsystem.vercel.app',
   credentials: true,
   methods: ['GET','POST','PUT','DELETE','PATCH','OPTIONS'],
   allowedHeaders: ['Content-Type','Authorization','X-Requested-With']
