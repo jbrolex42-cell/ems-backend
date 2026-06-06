@@ -4,7 +4,8 @@ const {
   getDashboardStats, getAllUsers, getSingleUser, updateUser, deleteUser,
   getAllEmergencies, getAdminEmergency, reassignAmbulance,
   getAmbulanceFleet, getHospitals, createHospital, updateHospital,
-  getMemberships, getSystemHealth, broadcastMessage, exportEmergencies
+  getMemberships, getSystemHealth, broadcastMessage, exportEmergencies,
+  createAdmin
 } = require('../controllers/adminController');
 const { protect } = require('../middleware/authMiddleware');
 const { adminMiddleware } = require('../middleware/adminMiddleware');
@@ -21,6 +22,7 @@ router.get('/users', getAllUsers);
 router.get('/users/:id', getSingleUser);
 router.put('/users/:id', updateUser);
 router.delete('/users/:id', deleteUser);
+router.post('/create-admin', createAdmin);
 
 // Emergencies
 router.get('/emergencies', getAllEmergencies);

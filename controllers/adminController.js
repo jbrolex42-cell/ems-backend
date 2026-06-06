@@ -231,4 +231,55 @@ const exportEmergencies = async (req,res,next) => {
   } catch(error){next(error);}
 };
 
-module.exports = {getDashboardStats,getAllUsers,getSingleUser,updateUser,deleteUser,getAllEmergencies,getAdminEmergency,reassignAmbulance,getAmbulanceFleet,getHospitals,createHospital,updateHospital,getMemberships,getSystemHealth,broadcastMessage,exportEmergencies};
+const createAdmin = async (req, res, next) => {
+  try {
+    // Only superadmin can create admins
+    if (req.user.role !== 'superadmin') {
+      return res.status(403).json({ success: false, message: 'Only superadmins can create admin accounts' });
+    }
+
+    const { firstName, lastName, email, phone, password, address } = req.body;
+
+    if (!firstName || !lastName || !email || !phone || !password) {
+      return res.status(400).json({ success: false, message: 'All fields are required' });
+    }
+
+    // Check if email already exists
+    const existing = await User.findOne({ email: email.toLowerCase() });
+    if (existing) {
+      return res.status(400).json({ success: false, message: 'An account with this email already exists' });
+    }
+
+    const bcrypt = require('bcryptjs');
+    const hashedPassword = await bcrypt.hash(password, 12);
+
+    const admin = await User.create({
+      firstName,
+      lastName,
+      email: email.toLowerCase(),
+      phone,
+      password: hashedPassword,
+      role: 'admin',
+      address: address || {},
+      isActive: true,
+      isVerified: true, // Admin accounts are pre-verified
+    });
+
+    res.status(201).json({
+      success: true,
+      message: 'Admin account created successfully',
+      user: {
+        _id: admin._id,
+        firstName: admin.firstName,
+        lastName: admin.lastName,
+        email: admin.email,
+        phone: admin.phone,
+        role: admin.role,
+        isActive: admin.isActive,
+        createdAt: admin.createdAt,
+      }
+    });
+  } catch (error) { next(error); }
+};
+
+module.exports = {getDashboardStats,getAllUsers,getSingleUser,updateUser,deleteUser,getAllEmergencies,getAdminEmergency,reassignAmbulance,getAmbulanceFleet,getHospitals,createHospital,updateHospital,getMemberships,getSystemHealth,broadcastMessage,exportEmergencies,createAdmin};
