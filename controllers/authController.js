@@ -226,4 +226,10 @@ module.exports = {
   login,
   forgotPassword,
   resetPassword,
+  register,
+  getMe,
+  logout,
+  refreshToken,
+  verifyEmail,
+  registerStaff
 };
