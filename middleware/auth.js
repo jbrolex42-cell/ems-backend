@@ -1,30 +1,33 @@
 const jwt = require("jsonwebtoken");
 
-const auth = (req, res, next) => {
+// Protect route (must be logged in)
+const protect = (req, res, next) => {
   try {
-    // Get token from header
     const token = req.header("Authorization");
 
     if (!token) {
-      return res.status(401).json({ message: "No token, access denied" });
+      return res.status(401).json({ message: "No token provided" });
     }
 
-    // Token format: "Bearer xyz123"
-    const actualToken = token.replace("Bearer ", "");
-
-    // Verify token
     const decoded = jwt.verify(
-      actualToken,
+      token.replace("Bearer ", ""),
       process.env.JWT_SECRET
     );
 
-    // Attach user data to request
     req.user = decoded;
-
     next();
-  } catch (error) {
-    res.status(401).json({ message: "Invalid or expired token" });
+  } catch (err) {
+    res.status(401).json({ message: "Invalid token" });
   }
 };
 
-module.exports = auth;
+// Admin only access
+const adminOnly = (req, res, next) => {
+  if (req.user && req.user.role === "admin") {
+    next();
+  } else {
+    return res.status(403).json({ message: "Admin access only" });
+  }
+};
+
+module.exports = { protect, adminOnly };
