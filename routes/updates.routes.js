@@ -3,10 +3,11 @@ const router = express.Router();
 const Update = require('../models/Update');
 const cloudinary = require('../config/cloudinary');
 const { uploadAny } = require('../middleware/uploadMiddleware');
-const { protect, requireRole } = require('../middleware/auth'); // adjust to your auth middleware names
+const { protect } = require('../middleware/authMiddleware');
+const { adminMiddleware } = require('../middleware/adminMiddleware');
 
 // ── Auth shorthand ────────────────────────────────────────────────────
-const adminOnly = [protect, requireRole('admin', 'superadmin')];
+const adminOnly = [protect, adminMiddleware];
 
 // ─────────────────────────────────────────────────────────────────────
 // GET /updates  — public, no auth required
