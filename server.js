@@ -135,7 +135,7 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/ambulances', ambulanceRoutes);
 app.use('/api/hospitals', hospitalRoutes);
-
+app.use('/api/emt', require('./routes/emtRoutes'));
 //
 // HEALTH CHECK
 //

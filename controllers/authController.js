@@ -25,7 +25,10 @@ const register = async (req, res, next) => {
       const field = existing.email === email.toLowerCase() ? 'Email' : 'Phone number';
       return res.status(409).json({ success: false, message: `${field} already registered` });
     }
-    const user = await User.create({ firstName, lastName, email: email.toLowerCase().trim(), phone, password, role: 'patient' });
+    // ✅ FIXED: respect the role from the form — patient, emt, admin allowed; superadmin blocked
+    const allowedRoles = ['patient', 'emt', 'admin'];
+    const assignedRole = allowedRoles.includes(role) ? role : 'patient';
+    const user = await User.create({ firstName, lastName, email: email.toLowerCase().trim(), phone, password, role: assignedRole });
     const token = generateToken(user._id, user.role);
     const refreshToken = generateRefreshToken(user._id);
     user.refreshToken = refreshToken;
@@ -150,7 +153,7 @@ const verifyEmail = async (req, res, next) => {
   } catch (error) { next(error); }
 };
 
-// @route POST /api/auth/register-staff  (admin only — called via admin panel)
+// @route POST /api/auth/register-staff  (admin only)
 const registerStaff = async (req, res, next) => {
   try {
     const { firstName, lastName, email, phone, password, role } = req.body;
