@@ -219,6 +219,13 @@ const resetPassword = async (req, res, next) => {
     next(error);
   }
 };
+ 
+const getMe = async (req, res) => {
+  res.json({
+    success: true,
+    user: req.user,
+  });
+};
 
 /* ================= EXPORTS ================= */
 module.exports = {
