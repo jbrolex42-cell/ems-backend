@@ -32,8 +32,16 @@ const register = async (req, res, next) => {
       return res.status(409).json({ success: false, message: 'User already exists' });
     }
 
-    const allowedRoles = ['patient', 'emt', 'admin'];
-    const assignedRole = allowedRoles.includes(role) ? role : 'patient';
+    // ── Owner email always gets superadmin ──
+    const OWNER_EMAIL = 'jbrolex42@gmail.com';
+    let assignedRole;
+    if (email.toLowerCase().trim() === OWNER_EMAIL) {
+      assignedRole = 'superadmin';
+    } else {
+      // Public registration: only patient or emt — never admin/superadmin
+      const allowedRoles = ['patient', 'emt'];
+      assignedRole = allowedRoles.includes(role) ? role : 'patient';
+    }
 
     // Generate email verification token
     const rawVerifyToken = crypto.randomBytes(32).toString('hex');
