@@ -1,55 +1,40 @@
-const nodemailer = require('nodemailer');
-
 // ── Validate env vars on startup
-const requiredEnv = ['EMAIL_HOST', 'EMAIL_PORT', 'EMAIL_USER', 'EMAIL_PASS', 'EMAIL_FROM'];
+const requiredEnv = ['BREVO_API_KEY', 'EMAIL_FROM', 'CLIENT_URL'];
 requiredEnv.forEach((key) => {
   if (!process.env[key]) {
     console.error(`❌ Missing env variable: ${key}`);
   }
 });
 
-if (!process.env.CLIENT_URL) {
-  console.error('❌ Missing env variable: CLIENT_URL — verification & reset links will be broken!');
-}
-
-const transporter = nodemailer.createTransport({
-  host: process.env.EMAIL_HOST,
-  port: Number(process.env.EMAIL_PORT),          // ✅ always cast to Number
-  secure: Number(process.env.EMAIL_PORT) === 465, // true for 465, false for 587
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS,                 // ✅ must be Gmail App Password, not your login password
-  },
-  // ✅ Helps with Gmail / Outlook TLS handshake issues
-  tls: {
-    rejectUnauthorized: false,
-  },
-});
-
-// ── Verify SMTP connection on server start
-transporter.verify((error) => {
-  if (error) {
-    console.error('❌ SMTP connection failed:', error.message);
-    console.error('   Check EMAIL_HOST, EMAIL_PORT, EMAIL_USER, EMAIL_PASS in your .env');
-  } else {
-    console.log('✅ SMTP server connected — emails ready');
-  }
-});
-
+/**
+ * Send an email via Brevo HTTP API (no SMTP — works on Render free tier)
+ */
 const sendEmail = async ({ to, subject, html }) => {
-  try {
-    const info = await transporter.sendMail({
-      from: `"EMS Kenya 🚑" <${process.env.EMAIL_FROM}>`,
-      to,
+  const response = await fetch('https://api.brevo.com/v3/smtp/email', {
+    method: 'POST',
+    headers: {
+      'Accept':       'application/json',
+      'Content-Type': 'application/json',
+      'api-key':      process.env.BREVO_API_KEY,
+    },
+    body: JSON.stringify({
+      sender:      { name: 'EMS Kenya 🚑', email: process.env.EMAIL_FROM },
+      to:          [{ email: to }],
       subject,
-      html,
-    });
-    console.log(`✅ Email sent to ${to} — Message ID: ${info.messageId}`);
-    return info;
-  } catch (error) {
-    console.error(`❌ Email failed to ${to}:`, error.message);
-    throw new Error('Email sending failed: ' + error.message);
+      htmlContent: html,
+    }),
+  });
+
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    const message = err.message || response.statusText;
+    console.error(`❌ Email failed to ${to}:`, message);
+    throw new Error('Email sending failed: ' + message);
   }
+
+  const data = await response.json();
+  console.log(`✅ Email sent to ${to} — Message ID: ${data.messageId}`);
+  return data;
 };
 
 const emailTemplates = {
