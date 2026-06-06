@@ -1,11 +1,11 @@
 const User = require('../models/User');
 const crypto = require('crypto');
-const jwt = require('jsonwebtoken');
 
 const { generateToken, generateRefreshToken } = require('../utils/generateToken');
 const { sendEmail, emailTemplates } = require('../utils/sendEmail');
 const { sendSMS } = require('../utils/smsService');
 
+/* ================= COOKIE HELPER ================= */
 const setTokenCookie = (res, token) => {
   res.cookie('ems_token', token, {
     httpOnly: true,
@@ -29,8 +29,7 @@ const register = async (req, res, next) => {
     });
 
     if (existing) {
-      const field = existing.email === email.toLowerCase() ? 'Email' : 'Phone number';
-      return res.status(409).json({ success: false, message: `${field} already registered` });
+      return res.status(409).json({ success: false, message: 'User already exists' });
     }
 
     const allowedRoles = ['patient', 'emt', 'admin'];
@@ -60,11 +59,8 @@ const register = async (req, res, next) => {
         subject: 'Welcome to EMS Kenya 🚑',
         html: emailTemplates.welcome(firstName),
       }),
-      sendSMS(
-        phone,
-        `Welcome to EMS Kenya, ${firstName}! Emergency: 1514 / 0700 395 395`
-      ),
-    ]).catch((e) => console.error('Welcome notification failed:', e.message));
+      sendSMS(phone, `Welcome to EMS Kenya, ${firstName}! Emergency: 1514 / 0700 395 395`),
+    ]).catch((err) => console.error('Notification error:', err.message));
 
     res.status(201).json({
       success: true,
@@ -91,10 +87,6 @@ const login = async (req, res, next) => {
 
     if (!user) {
       return res.status(401).json({ success: false, message: 'Invalid credentials' });
-    }
-
-    if (!user.isActive) {
-      return res.status(403).json({ success: false, message: 'Account deactivated' });
     }
 
     const isMatch = await user.matchPassword(password);
@@ -135,7 +127,6 @@ const forgotPassword = async (req, res, next) => {
 
     const user = await User.findOne({ email: email.toLowerCase().trim() });
 
-    // Always return success (security best practice)
     if (!user) {
       return res.json({
         success: true,
@@ -145,12 +136,8 @@ const forgotPassword = async (req, res, next) => {
 
     const resetToken = crypto.randomBytes(32).toString('hex');
 
-    user.resetPasswordToken = crypto
-      .createHash('sha256')
-      .update(resetToken)
-      .digest('hex');
-
-    user.resetPasswordExpire = Date.now() + 30 * 60 * 1000; // 30 mins
+    user.resetPasswordToken = crypto.createHash('sha256').update(resetToken).digest('hex');
+    user.resetPasswordExpire = Date.now() + 30 * 60 * 1000;
 
     await user.save({ validateBeforeSave: false });
 
@@ -183,10 +170,7 @@ const resetPassword = async (req, res, next) => {
       });
     }
 
-    const hashedToken = crypto
-      .createHash('sha256')
-      .update(req.params.token)
-      .digest('hex');
+    const hashedToken = crypto.createHash('sha256').update(req.params.token).digest('hex');
 
     const user = await User.findOne({
       resetPasswordToken: hashedToken,
@@ -213,18 +197,41 @@ const resetPassword = async (req, res, next) => {
     res.json({
       success: true,
       message: 'Password reset successful',
-      token,
     });
   } catch (error) {
     next(error);
   }
 };
- 
+
+/* ================= GET ME ================= */
 const getMe = async (req, res) => {
   res.json({
     success: true,
     user: req.user,
   });
+};
+
+/* ================= LOGOUT ================= */
+const logout = async (req, res) => {
+  res.clearCookie('ems_token');
+
+  res.json({
+    success: true,
+    message: 'Logged out successfully',
+  });
+};
+
+/* ================= PLACEHOLDER FUNCTIONS ================= */
+const refreshToken = async (req, res) => {
+  res.status(200).json({ message: 'Refresh token not implemented yet' });
+};
+
+const verifyEmail = async (req, res) => {
+  res.status(200).json({ message: 'Email verification not implemented yet' });
+};
+
+const registerStaff = async (req, res) => {
+  res.status(200).json({ message: 'Staff registration not implemented yet' });
 };
 
 /* ================= EXPORTS ================= */
@@ -233,10 +240,9 @@ module.exports = {
   login,
   forgotPassword,
   resetPassword,
-  register,
   getMe,
   logout,
   refreshToken,
   verifyEmail,
-  registerStaff
+  registerStaff,
 };
