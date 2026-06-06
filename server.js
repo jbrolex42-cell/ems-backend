@@ -19,7 +19,7 @@ const adminRoutes = require('./routes/adminRoutes');
 const userRoutes = require('./routes/userRoutes');
 const ambulanceRoutes = require('./routes/ambulanceRoutes');
 const hospitalRoutes = require('./routes/hospitalRoutes');
-const updatesRoutes = require('./routes/updates.routes');
+const updatesRoutes = require('./routes/updatesRoutes');
 
 const app = express();
 app.set('trust proxy', 1);
