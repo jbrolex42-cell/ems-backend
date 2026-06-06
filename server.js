@@ -19,6 +19,7 @@ const adminRoutes = require('./routes/adminRoutes');
 const userRoutes = require('./routes/userRoutes');
 const ambulanceRoutes = require('./routes/ambulanceRoutes');
 const hospitalRoutes = require('./routes/hospitalRoutes');
+const updatesRoutes = require('./routes/updates.routes');
 
 const app = express();
 app.set('trust proxy', 1);
@@ -138,6 +139,7 @@ app.use('/api/users', userRoutes);
 app.use('/api/ambulances', ambulanceRoutes);
 app.use('/api/hospitals', hospitalRoutes);
 app.use('/api/emt', require('./routes/emtRoutes'));
+app.use('/api/updates', updatesRoutes);
 //
 // HEALTH CHECK
 //
