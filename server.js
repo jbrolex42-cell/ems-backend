@@ -139,7 +139,7 @@ app.use('/api/users', userRoutes);
 app.use('/api/ambulances', ambulanceRoutes);
 app.use('/api/hospitals', hospitalRoutes);
 app.use('/api/emt', require('./routes/emtRoutes'));
-app.use('/api/updates', require("./routes/updateRoutes"));
+app.use('/api/updates', require("./routes/updatesRoutes"));
 app.use('/api/uploads', require('./routes/uploadRoutes'));
 //
 // HEALTH CHECK
