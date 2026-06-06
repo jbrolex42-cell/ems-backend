@@ -1,6 +1,6 @@
 const nodemailer = require('nodemailer');
 
-// ── Validate env vars on startup so you know immediately if something is missing
+// ── Validate env vars on startup
 const requiredEnv = ['EMAIL_HOST', 'EMAIL_PORT', 'EMAIL_USER', 'EMAIL_PASS', 'EMAIL_FROM'];
 requiredEnv.forEach((key) => {
   if (!process.env[key]) {
@@ -8,13 +8,21 @@ requiredEnv.forEach((key) => {
   }
 });
 
+if (!process.env.CLIENT_URL) {
+  console.error('❌ Missing env variable: CLIENT_URL — verification & reset links will be broken!');
+}
+
 const transporter = nodemailer.createTransport({
   host: process.env.EMAIL_HOST,
-  port: Number(process.env.EMAIL_PORT),
-  secure: Number(process.env.EMAIL_PORT) === 465,
+  port: Number(process.env.EMAIL_PORT),          // ✅ always cast to Number
+  secure: Number(process.env.EMAIL_PORT) === 465, // true for 465, false for 587
   auth: {
     user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS,
+    pass: process.env.EMAIL_PASS,                 // ✅ must be Gmail App Password, not your login password
+  },
+  // ✅ Helps with Gmail / Outlook TLS handshake issues
+  tls: {
+    rejectUnauthorized: false,
   },
 });
 
@@ -22,6 +30,7 @@ const transporter = nodemailer.createTransport({
 transporter.verify((error) => {
   if (error) {
     console.error('❌ SMTP connection failed:', error.message);
+    console.error('   Check EMAIL_HOST, EMAIL_PORT, EMAIL_USER, EMAIL_PASS in your .env');
   } else {
     console.log('✅ SMTP server connected — emails ready');
   }
