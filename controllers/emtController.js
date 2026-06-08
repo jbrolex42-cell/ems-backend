@@ -6,8 +6,11 @@ const Ambulance = require('../models/Ambulance');
 const getMyCases = async (req, res, next) => {
   try {
     const { limit = 6, status, page = 1 } = req.query;
-    const query = { emt: req.user._id, isDeleted: false };
-    if (status) query.status = status;
+    const query = {
+      emt: req.user._id,
+      isDeleted: false,
+      ...(status ? { status } : { status: { $in: ['pending','dispatched','enroute','on_scene','transporting','at_hospital'] } })
+    };
 
     const [cases, total] = await Promise.all([
       Emergency.find(query)

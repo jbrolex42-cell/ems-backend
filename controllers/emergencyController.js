@@ -57,7 +57,7 @@ const createEmergency = async (req, res, next) => {
     if (dispatchResult) {
       const { ambulance, eta } = dispatchResult;
       etaMinutes = eta;
-      await Ambulance.findByIdAndUpdate(ambulance._id, { status: 'dispatched' });
+      if (ambulance._id) await Ambulance.findByIdAndUpdate(ambulance._id, { status: 'dispatched' });
       emergency.ambulance = ambulance._id;
       emergency.emt = ambulance.emt;
       emergency.status = 'dispatched';
@@ -83,7 +83,30 @@ const createEmergency = async (req, res, next) => {
         if (emtUser) await notifyEMTDispatch(emtUser, emergency, req.user);
       }
     } else {
-      await emergency.save();
+      // No ambulance found — try to assign to any available EMT directly
+      const availableEMT = await User.findOne({ role: 'emt', status: 'available' });
+      if (availableEMT) {
+        emergency.emt = availableEMT._id;
+        emergency.status = 'dispatched';
+        emergency.timeline.push({ status: 'dispatched', note: 'Assigned to available EMT (no ambulance linked)' });
+        await emergency.save();
+        if (io) {
+          io.to(`user_${availableEMT._id}`).emit('dispatch_assigned', {
+            emergencyId: emergency.emergencyId,
+            emergencyDbId: emergency._id,
+            patientLocation: emergency.patientLocation,
+            patientName: `${req.user.firstName} ${req.user.lastName}`,
+            patientPhone: req.user.phone,
+            patientBloodGroup: req.user.bloodGroup,
+            type: triage.type,
+            severity: triage.severity,
+            guidance: triage.guidance,
+          });
+        }
+        await notifyEMTDispatch(availableEMT, emergency, req.user);
+      } else {
+        await emergency.save();
+      }
       if (triage.severity === 'critical') await notifyAdminCritical(emergency, req.user);
     }
 
@@ -105,7 +128,7 @@ const createEmergency = async (req, res, next) => {
         patientName: `${req.user.firstName} ${req.user.lastName}`
       });
       if (dispatchResult?.ambulance?.emt) {
-        io.to(`emt_${dispatchResult.ambulance.emt}`).emit('dispatch_assigned', {
+        io.to(`user_${dispatchResult.ambulance.emt}`).emit('dispatch_assigned', {
           emergencyId: emergency.emergencyId,
           emergencyDbId: emergency._id,
           patientLocation: emergency.patientLocation,
