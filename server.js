@@ -141,6 +141,7 @@ app.use('/api/hospitals', hospitalRoutes);
 app.use('/api/emt', require('./routes/emtRoutes'));
 app.use('/api/updates', require("./routes/updatesRoutes"));
 app.use('/api/uploads', require('./routes/uploadRoutes'));
+app.use('/api/notifications', require('./routes/notificationRoutes'));
 //
 // HEALTH CHECK
 //
@@ -197,6 +198,10 @@ io.on('connection', (socket) => {
 
   socket.on('disconnect', () => {
     connectedClients.delete(socket.id);
+  });
+  
+  socket.on('join_user', (userId) => {
+    socket.join(`user_${userId}`);
   });
 });
 
