@@ -250,15 +250,12 @@ const createAdmin = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'An account with this email already exists' });
     }
 
-    const bcrypt = require('bcryptjs');
-    const hashedPassword = await bcrypt.hash(password, 12);
-
     const admin = await User.create({
       firstName,
       lastName,
       email: email.toLowerCase(),
       phone,
-      password: hashedPassword,
+      password,
       role: 'admin',
       address: address || {},
       isActive: true,
