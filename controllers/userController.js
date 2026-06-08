@@ -12,7 +12,7 @@ const getProfile = async (req, res, next) => {
 
 const updateProfile = async (req, res, next) => {
   try {
-    const allowed = ['firstName','lastName','phone','bloodGroup','allergies','medicalConditions','emergencyContacts','address','shaNumber','idNumber'];
+    const allowed = ['firstName','lastName','phone','bloodGroup','allergies','medicalConditions','emergencyContacts','address','shaNumber','idNumber','badgeNumber','station','ambulanceUnit','certification'];
     const updates = {};
     allowed.forEach(f => { if (req.body[f] !== undefined) updates[f] = req.body[f]; });
     const user = await User.findByIdAndUpdate(req.user._id, updates, { new: true, runValidators: true });
