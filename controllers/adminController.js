@@ -250,12 +250,15 @@ const createAdmin = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'An account with this email already exists' });
     }
 
+    const bcrypt = require('bcryptjs');
+    const hashedPassword = await bcrypt.hash(password, 12);
+
     const admin = await User.create({
       firstName,
       lastName,
       email: email.toLowerCase(),
       phone,
-      password,
+      password: hashedPassword,
       role: 'admin',
       address: address || {},
       isActive: true,
@@ -279,4 +282,65 @@ const createAdmin = async (req, res, next) => {
   } catch (error) { next(error); }
 };
 
-module.exports = {getDashboardStats,getAllUsers,getSingleUser,updateUser,deleteUser,getAllEmergencies,getAdminEmergency,reassignAmbulance,getAmbulanceFleet,getHospitals,createHospital,updateHospital,getMemberships,getSystemHealth,broadcastMessage,exportEmergencies,createAdmin};
+module.exports = {getDashboardStats,getAllUsers,getSingleUser,updateUser,deleteUser,getAllEmergencies,getAdminEmergency,reassignAmbulance,getAmbulanceFleet,getHospitals,createHospital,updateHospital,getMemberships,getSystemHealth,broadcastMessage,exportEmergencies,createAdmin,createAmbulance,updateAmbulanceLocation};
+
+const createAmbulance = async (req, res, next) => {
+  try {
+    const { registrationNumber, type, county, status, emt, driver, equipment, capacity, notes } = req.body;
+
+    if (!registrationNumber || !type || !county) {
+      return res.status(400).json({ success: false, message: 'Registration number, type and county are required' });
+    }
+
+    const existing = await Ambulance.findOne({ registrationNumber: registrationNumber.toUpperCase() });
+    if (existing) {
+      return res.status(400).json({ success: false, message: 'An ambulance with this registration already exists' });
+    }
+
+    const ambulance = await Ambulance.create({
+      registrationNumber: registrationNumber.toUpperCase(),
+      type,
+      county,
+      status: status || 'available',
+      emt: emt || null,
+      driver: driver || null,
+      equipment: equipment || [],
+      capacity: capacity || 2,
+      notes: notes || '',
+      isActive: true,
+      location: { type: 'Point', coordinates: [0, 0] }
+    });
+
+    const populated = await Ambulance.findById(ambulance._id)
+      .populate('emt', 'firstName lastName phone')
+      .populate('driver', 'firstName lastName phone');
+
+    res.status(201).json({ success: true, message: 'Ambulance created successfully', ambulance: populated });
+  } catch (error) { next(error); }
+};
+
+const updateAmbulanceLocation = async (req, res, next) => {
+  try {
+    const { coordinates, status } = req.body;
+    const updates = { lastPing: new Date() };
+    if (coordinates) updates.location = { type: 'Point', coordinates };
+    if (status) updates.status = status;
+
+    const ambulance = await Ambulance.findByIdAndUpdate(req.params.id, updates, { new: true })
+      .populate('emt', 'firstName lastName phone')
+      .populate('driver', 'firstName lastName phone');
+
+    if (!ambulance) return res.status(404).json({ success: false, message: 'Ambulance not found' });
+
+    const io = req.app.get('io');
+    if (io) io.to('admin_room').emit('ambulance_location_update', {
+      id: ambulance._id,
+      coordinates: ambulance.location.coordinates,
+      status: ambulance.status,
+      registrationNumber: ambulance.registrationNumber,
+      lastPing: ambulance.lastPing
+    });
+
+    res.json({ success: true, ambulance });
+  } catch (error) { next(error); }
+};

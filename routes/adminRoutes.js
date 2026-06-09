@@ -5,7 +5,7 @@ const {
   getAllEmergencies, getAdminEmergency, reassignAmbulance,
   getAmbulanceFleet, getHospitals, createHospital, updateHospital,
   getMemberships, getSystemHealth, broadcastMessage, exportEmergencies,
-  createAdmin
+  createAdmin, createAmbulance, updateAmbulanceLocation
 } = require('../controllers/adminController');
 const { protect } = require('../middleware/authMiddleware');
 const { adminMiddleware } = require('../middleware/adminMiddleware');
@@ -31,6 +31,8 @@ router.put('/emergencies/:id/reassign', reassignAmbulance);
 
 // Fleet
 router.get('/fleet', getAmbulanceFleet);
+router.post('/fleet', createAmbulance);
+router.put('/fleet/:id/location', updateAmbulanceLocation);
 
 // Hospitals
 router.get('/hospitals', getHospitals);
