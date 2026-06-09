@@ -282,8 +282,6 @@ const createAdmin = async (req, res, next) => {
   } catch (error) { next(error); }
 };
 
-module.exports = {getDashboardStats,getAllUsers,getSingleUser,updateUser,deleteUser,getAllEmergencies,getAdminEmergency,reassignAmbulance,getAmbulanceFleet,getHospitals,createHospital,updateHospital,getMemberships,getSystemHealth,broadcastMessage,exportEmergencies,createAdmin,createAmbulance,updateAmbulanceLocation};
-
 const createAmbulance = async (req, res, next) => {
   try {
     const { registrationNumber, type, county, status, emt, driver, equipment, capacity, notes } = req.body;
@@ -344,3 +342,5 @@ const updateAmbulanceLocation = async (req, res, next) => {
     res.json({ success: true, ambulance });
   } catch (error) { next(error); }
 };
+
+module.exports = {getDashboardStats,getAllUsers,getSingleUser,updateUser,deleteUser,getAllEmergencies,getAdminEmergency,reassignAmbulance,getAmbulanceFleet,getHospitals,createHospital,updateHospital,getMemberships,getSystemHealth,broadcastMessage,exportEmergencies,createAdmin,createAmbulance,updateAmbulanceLocation};
