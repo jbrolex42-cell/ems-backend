@@ -34,11 +34,15 @@ const allowedOrigins = [
 ];
 
 //
-// 🚑 SOCKET.IO SETUP
+// 🚑 SOCKET.IO SETUP — updated to allow mobile (no origin header)
 //
 const io = new Server(server, {
   cors: {
-    origin: allowedOrigins,
+    origin: function(origin, callback) {
+      // Allow mobile apps (no origin) and the website
+      if (!origin || allowedOrigins.includes(origin)) return callback(null, true);
+      return callback(new Error('Socket CORS blocked: ' + origin));
+    },
     methods: ['GET', 'POST'],
     credentials: true
   },
@@ -63,13 +67,14 @@ app.use(helmet({
 }));
 
 //
-// 🚑 CRITICAL FIX: CORS MUST BE FIRST
+// 🚑 CORS — updated to allow mobile apps (no origin header)
 //
 app.use((req, res, next) => {
   const origin = req.headers.origin;
 
-  if (allowedOrigins.includes(origin)) {
-    res.header('Access-Control-Allow-Origin', origin);
+  // Mobile apps send no origin — allow them alongside the website
+  if (!origin || allowedOrigins.includes(origin)) {
+    res.header('Access-Control-Allow-Origin', origin || '*');
   }
 
   res.header('Access-Control-Allow-Credentials', 'true');
@@ -84,16 +89,14 @@ app.use((req, res, next) => {
 });
 
 //
-// OPTIONAL: CORS LIB (SAFE FALLBACK)
+// CORS LIB — updated to allow mobile apps
 //
 app.use(cors({
   origin: function (origin, callback) {
-    if (!origin) return callback(null, true);
-
-    if (allowedOrigins.includes(origin)) {
+    // Allow mobile apps (no origin) and the website
+    if (!origin || allowedOrigins.includes(origin)) {
       return callback(null, true);
     }
-
     return callback(new Error('CORS blocked: ' + origin));
   },
   credentials: true
@@ -142,6 +145,7 @@ app.use('/api/emt', require('./routes/emtRoutes'));
 app.use('/api/updates', require("./routes/updatesRoutes"));
 app.use('/api/uploads', require('./routes/uploadRoutes'));
 app.use('/api/notifications', require('./routes/notificationRoutes'));
+
 //
 // HEALTH CHECK
 //
@@ -180,7 +184,6 @@ io.on('connection', (socket) => {
     if (data.emergencyId) {
       socket.to(`emergency_${data.emergencyId}`).emit('ambulance_moved', data);
     }
-
     io.to('admin_room').emit('ambulance_location', data);
   });
 
@@ -199,7 +202,7 @@ io.on('connection', (socket) => {
   socket.on('disconnect', () => {
     connectedClients.delete(socket.id);
   });
-  
+
   socket.on('join_user', (userId) => {
     socket.join(`user_${userId}`);
   });

@@ -50,7 +50,10 @@ const userSchema = new mongoose.Schema({
   badgeNumber:   { type: String },
   station:       { type: String },
   ambulanceUnit: { type: String },
-  certification: { type: String }
+  certification: { type: String },
+
+  // ── Mobile app push notifications ───────────────────────────
+  expoPushToken: { type: String, default: null }
 
 }, { timestamps: true });
 
