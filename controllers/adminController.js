@@ -136,7 +136,7 @@ const getAmbulanceFleet = async (req,res,next) => {
     if(status) query.status=status;
     if(type) query.type=type;
     const [ambulances,stats,statsByCounty]=await Promise.all([
-      Ambulance.find(query).populate('driver','firstName lastName phone').populate('emt','firstName lastName phone').sort({status:1,county:1}),
+      Ambulance.find(query).populate('driver','firstName lastName phone').populate('emt','firstName lastName phone').select('+location +lastPing').sort({status:1,county:1}),
       Ambulance.aggregate([{$match:{isActive:true}},{$group:{_id:'$status',count:{$sum:1}}}]),
       Ambulance.aggregate([{$match:{isActive:true}},{$group:{_id:{county:'$county',status:'$status'},count:{$sum:1}}},{$sort:{'_id.county':1}}])
     ]);
@@ -320,6 +320,15 @@ const createAmbulance = async (req, res, next) => {
 const updateAmbulanceLocation = async (req, res, next) => {
   try {
     const { coordinates, status } = req.body;
+
+    if (!req.params.id || req.params.id === 'undefined') {
+      return res.status(400).json({ success: false, message: 'Ambulance ID is missing. Make sure ambulanceId is set on the EMT user account.' });
+    }
+
+    if (!coordinates || !Array.isArray(coordinates) || coordinates.length !== 2) {
+      return res.status(400).json({ success: false, message: 'coordinates must be [longitude, latitude]' });
+    }
+
     const updates = { lastPing: new Date() };
     if (coordinates) updates.location = { type: 'Point', coordinates };
     if (status) updates.status = status;
@@ -331,13 +340,22 @@ const updateAmbulanceLocation = async (req, res, next) => {
     if (!ambulance) return res.status(404).json({ success: false, message: 'Ambulance not found' });
 
     const io = req.app.get('io');
-    if (io) io.to('admin_room').emit('ambulance_location_update', {
-      id: ambulance._id,
-      coordinates: ambulance.location.coordinates,
-      status: ambulance.status,
-      registrationNumber: ambulance.registrationNumber,
-      lastPing: ambulance.lastPing
-    });
+    if (io) {
+      // Find all admin/superadmin user IDs and emit to each of their rooms
+      const User = require('../models/User');
+      const admins = await User.find({ role: { $in: ['admin', 'superadmin'] }, isActive: true }).select('_id');
+      const payload = {
+        ambulanceId: ambulance._id,   // frontend uses ambulanceId (was 'id' — bug fixed)
+        id: ambulance._id,            // keep for backwards compat
+        coordinates: ambulance.location.coordinates,
+        status: ambulance.status,
+        registrationNumber: ambulance.registrationNumber,
+        lastPing: ambulance.lastPing
+      };
+      admins.forEach(admin => {
+        io.to(`user_${admin._id}`).emit('ambulance_location_update', payload);
+      });
+    }
 
     res.json({ success: true, ambulance });
   } catch (error) { next(error); }
