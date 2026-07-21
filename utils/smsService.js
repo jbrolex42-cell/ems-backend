@@ -26,7 +26,9 @@ const sendSMS = async (to, message) => {
         username,
         to,
         message,
-        from: senderId,
+        // Sandbox does not support custom alphanumeric sender IDs —
+        // only include 'from' when using the live/production app.
+        ...(username !== "sandbox" && senderId ? { from: senderId } : {}),
       }),
       {
         headers: {
