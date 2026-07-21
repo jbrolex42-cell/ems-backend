@@ -3,23 +3,34 @@ const qs = require("querystring");
 
 const sendSMS = async (to, message) => {
   try {
+    const username = process.env.AT_USERNAME;
+    const apiKey = process.env.AT_API_KEY;
+    const senderId = process.env.AT_SENDER_ID;
+
+    // Sandbox credentials only work against the sandbox endpoint.
+    // Live credentials only work against the production endpoint.
+    const AT_BASE_URL =
+      username === "sandbox"
+        ? "https://api.sandbox.africastalking.com/version1/messaging"
+        : "https://api.africastalking.com/version1/messaging";
+
     console.log("Sending SMS...");
-    console.log("Username:", process.env.AT_USERNAME);
-    console.log("Sender ID:", process.env.AT_SENDER_ID);
-    console.log("API Key exists:", !!process.env.AT_API_KEY);
+    console.log("Username:", username);
+    console.log("Sender ID:", senderId);
+    console.log("API Key exists:", !!apiKey);
+    console.log("Endpoint:", AT_BASE_URL);
 
     const response = await axios.post(
-      "https://api.africastalking.com/version1/messaging",
+      AT_BASE_URL,
       qs.stringify({
-        username: process.env.AT_USERNAME,
+        username,
         to,
         message,
-        // Remove this line temporarily while testing
-        // from: process.env.AT_SENDER_ID,
+        from: senderId,
       }),
       {
         headers: {
-          apiKey: process.env.AT_API_KEY,
+          apiKey,
           "Content-Type": "application/x-www-form-urlencoded",
           Accept: "application/json",
         },
