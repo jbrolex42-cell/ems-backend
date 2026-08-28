@@ -35,12 +35,7 @@ const donationSchema = new mongoose.Schema(
 
     paymentMethod: {
       type: String,
-      enum: [
-        "mpesa",
-        "kcb",
-        "airtel",
-        "bank",
-      ],
+      enum: ["mpesa", "kcb", "airtel", "bank"],
       required: true,
       default: "mpesa",
       index: true,
@@ -59,27 +54,26 @@ const donationSchema = new mongoose.Schema(
       index: true,
     },
 
-    /*
-     * General payment information
-     */
+    // General payment information
     paymentReference: {
       type: String,
       default: "",
+      trim: true,
       index: true,
     },
 
     providerTransactionId: {
       type: String,
       default: "",
+      trim: true,
       index: true,
     },
 
-    /*
-     * M-PESA request information
-     */
+    // M-PESA
     merchantRequestId: {
       type: String,
       default: "",
+      index: true,
     },
 
     checkoutRequestId: {
@@ -91,6 +85,7 @@ const donationSchema = new mongoose.Schema(
     mpesaReceiptNumber: {
       type: String,
       default: "",
+      index: true,
     },
 
     transactionDate: {
@@ -98,39 +93,38 @@ const donationSchema = new mongoose.Schema(
       default: "",
     },
 
-    /*
-     * KCB
-     */
+    // KCB
     kcbTransactionId: {
       type: String,
       default: "",
+      index: true,
     },
 
     kcbReference: {
       type: String,
       default: "",
+      index: true,
     },
 
-    /*
-     * Airtel Money
-     */
+    // Airtel Money
     airtelTransactionId: {
       type: String,
       default: "",
+      index: true,
     },
 
     airtelReference: {
       type: String,
       default: "",
+      index: true,
     },
 
-    /*
-     * Manual bank transfer
-     */
+    // Bank
     bankReference: {
       type: String,
       default: "",
       trim: true,
+      index: true,
     },
 
     bankName: {
@@ -139,9 +133,7 @@ const donationSchema = new mongoose.Schema(
       trim: true,
     },
 
-    /*
-     * Provider response information
-     */
+    // Provider response
     resultCode: {
       type: String,
       default: "",
@@ -155,6 +147,7 @@ const donationSchema = new mongoose.Schema(
     callbackReceived: {
       type: Boolean,
       default: false,
+      index: true,
     },
 
     callbackData: {

@@ -13,6 +13,7 @@ const {
   initiateAirtelPayment,
 } = require("../services/airtelService");
 
+
 /* =========================================================
    PHONE NUMBER
 ========================================================= */
@@ -34,8 +35,9 @@ function normalizePhone(phone) {
   return value;
 }
 
+
 /* =========================================================
-   AMOUNT VALIDATION
+   AMOUNT
 ========================================================= */
 
 function validateAmount(amount) {
@@ -48,8 +50,9 @@ function validateAmount(amount) {
   return Math.round(value);
 }
 
+
 /* =========================================================
-   ERROR HANDLER
+   ERROR MESSAGE
 ========================================================= */
 
 function getErrorMessage(error, fallback) {
@@ -62,6 +65,68 @@ function getErrorMessage(error, fallback) {
     fallback
   );
 }
+
+
+/* =========================================================
+   ADMIN SOCKET NOTIFICATION
+========================================================= */
+
+function emitDonationUpdate(req, donation) {
+  try {
+    const io = req.app.get("io");
+
+    if (!io) {
+      return;
+    }
+
+    const payload = {
+      id: donation._id,
+      donorName: donation.donorName,
+      email: donation.email,
+      phone: donation.phone,
+      amount: donation.amount,
+      purpose: donation.purpose,
+      paymentMethod: donation.paymentMethod,
+      status: donation.status,
+
+      reference:
+        donation.kcbReference ||
+        donation.airtelReference ||
+        donation.mpesaReceiptNumber ||
+        donation.bankReference ||
+        donation.checkoutRequestId ||
+        donation.paymentReference ||
+        String(donation._id),
+
+      mpesaReceiptNumber:
+        donation.mpesaReceiptNumber || "",
+
+      createdAt: donation.createdAt,
+      updatedAt: donation.updatedAt,
+    };
+
+    // Send to all connected admins.
+    io.to("admin_room").emit(
+      "donation_updated",
+      payload
+    );
+
+    // Also emit globally for compatibility.
+    io.emit("donation_updated", payload);
+
+    console.log(
+      "ADMIN DONATION SOCKET EVENT:",
+      donation._id.toString(),
+      donation.status
+    );
+  } catch (error) {
+    console.error(
+      "DONATION SOCKET ERROR:",
+      error.message
+    );
+  }
+}
+
 
 /* =========================================================
    CREATE DONATION RECORD
@@ -77,26 +142,28 @@ async function createDonationRecord({
 }) {
   return Donation.create({
     donorName:
-      String(name || "Anonymous").trim() || "Anonymous",
+      String(name || "Anonymous").trim() ||
+      "Anonymous",
 
     email:
-      String(email || "").trim(),
+      String(email || "").trim().toLowerCase(),
 
-    phone:
-      normalizePhone(phone),
+    phone: normalizePhone(phone),
 
     amount,
 
     purpose:
       String(
         purpose || "Emergency Response"
-      ).trim() || "Emergency Response",
+      ).trim() ||
+      "Emergency Response",
 
     paymentMethod,
 
     status: "processing",
   });
 }
+
 
 /* =========================================================
    DONATION RESPONSE
@@ -106,7 +173,15 @@ function donationResponse(donation) {
   return {
     id: donation._id,
 
+    donorName: donation.donorName,
+
+    email: donation.email,
+
+    phone: donation.phone,
+
     amount: donation.amount,
+
+    purpose: donation.purpose,
 
     status: donation.status,
 
@@ -116,12 +191,38 @@ function donationResponse(donation) {
     reference:
       donation.kcbReference ||
       donation.airtelReference ||
-      donation.checkoutRequestId ||
+      donation.mpesaReceiptNumber ||
       donation.bankReference ||
-      donation._id,
+      donation.checkoutRequestId ||
+      donation.paymentReference ||
+      String(donation._id),
+
+    paymentReference:
+      donation.paymentReference || "",
 
     mpesaReceiptNumber:
       donation.mpesaReceiptNumber || "",
+
+    kcbReference:
+      donation.kcbReference || "",
+
+    kcbTransactionId:
+      donation.kcbTransactionId || "",
+
+    airtelReference:
+      donation.airtelReference || "",
+
+    airtelTransactionId:
+      donation.airtelTransactionId || "",
+
+    bankReference:
+      donation.bankReference || "",
+
+    callbackReceived:
+      donation.callbackReceived,
+
+    resultCode:
+      donation.resultCode || "",
 
     resultDescription:
       donation.resultDescription || "",
@@ -133,6 +234,7 @@ function donationResponse(donation) {
       donation.updatedAt,
   };
 }
+
 
 /* =========================================================
    CREATE DONATION
@@ -200,6 +302,7 @@ async function createDonation(req, res) {
       });
     }
 
+
     /* =====================================================
        M-PESA
     ===================================================== */
@@ -230,10 +333,18 @@ async function createDonation(req, res) {
           });
 
         donation.merchantRequestId =
-          mpesaResponse?.MerchantRequestID || "";
+          mpesaResponse?.MerchantRequestID ||
+          "";
 
         donation.checkoutRequestId =
-          mpesaResponse?.CheckoutRequestID || "";
+          mpesaResponse?.CheckoutRequestID ||
+          "";
+
+        donation.paymentReference =
+          donation.checkoutRequestId;
+
+        donation.providerResponse =
+          mpesaResponse;
 
         donation.resultDescription =
           mpesaResponse?.ResponseDescription ||
@@ -248,6 +359,8 @@ async function createDonation(req, res) {
             : "failed";
 
         await donation.save();
+
+        emitDonationUpdate(req, donation);
 
         return res.status(200).json({
           success:
@@ -284,7 +397,12 @@ async function createDonation(req, res) {
             "Unable to initiate M-PESA payment."
           );
 
+        donation.providerResponse =
+          error?.response?.data || null;
+
         await donation.save();
+
+        emitDonationUpdate(req, donation);
 
         console.error(
           "M-PESA INITIATION ERROR:",
@@ -303,6 +421,7 @@ async function createDonation(req, res) {
         });
       }
     }
+
 
     /* =====================================================
        KCB
@@ -342,6 +461,14 @@ async function createDonation(req, res) {
           kcbResponse?.Reference ||
           "";
 
+        donation.paymentReference =
+          donation.kcbReference ||
+          donation.kcbTransactionId ||
+          String(donation._id);
+
+        donation.providerResponse =
+          kcbResponse;
+
         donation.resultDescription =
           kcbResponse?.message ||
           kcbResponse?.ResponseDescription ||
@@ -353,6 +480,8 @@ async function createDonation(req, res) {
             : "processing";
 
         await donation.save();
+
+        emitDonationUpdate(req, donation);
 
         return res.status(200).json({
           success:
@@ -371,9 +500,7 @@ async function createDonation(req, res) {
             donation._id,
 
           reference:
-            donation.kcbReference ||
-            donation.kcbTransactionId ||
-            String(donation._id),
+            donation.paymentReference,
 
           status:
             donation.status,
@@ -387,7 +514,12 @@ async function createDonation(req, res) {
             "Unable to initiate KCB payment."
           );
 
+        donation.providerResponse =
+          error?.response?.data || null;
+
         await donation.save();
+
+        emitDonationUpdate(req, donation);
 
         console.error(
           "KCB INITIATION ERROR:",
@@ -406,6 +538,7 @@ async function createDonation(req, res) {
         });
       }
     }
+
 
     /* =====================================================
        AIRTEL MONEY
@@ -446,6 +579,14 @@ async function createDonation(req, res) {
           airtelResponse?.data?.reference ||
           "";
 
+        donation.paymentReference =
+          donation.airtelReference ||
+          donation.airtelTransactionId ||
+          String(donation._id);
+
+        donation.providerResponse =
+          airtelResponse;
+
         donation.resultDescription =
           airtelResponse?.message ||
           airtelResponse?.statusMessage ||
@@ -458,6 +599,8 @@ async function createDonation(req, res) {
             : "processing";
 
         await donation.save();
+
+        emitDonationUpdate(req, donation);
 
         return res.status(200).json({
           success:
@@ -476,9 +619,7 @@ async function createDonation(req, res) {
             donation._id,
 
           reference:
-            donation.airtelReference ||
-            donation.airtelTransactionId ||
-            String(donation._id),
+            donation.paymentReference,
 
           status:
             donation.status,
@@ -492,7 +633,12 @@ async function createDonation(req, res) {
             "Unable to initiate Airtel Money payment."
           );
 
+        donation.providerResponse =
+          error?.response?.data || null;
+
         await donation.save();
+
+        emitDonationUpdate(req, donation);
 
         console.error(
           "AIRTEL INITIATION ERROR:",
@@ -512,15 +658,13 @@ async function createDonation(req, res) {
       }
     }
 
+
     /* =====================================================
        BANK
     ===================================================== */
 
     if (method === "bank") {
-      return createBankDonation(
-        req,
-        res
-      );
+      return createBankDonation(req, res);
     }
 
     return res.status(400).json({
@@ -537,7 +681,6 @@ async function createDonation(req, res) {
 
     return res.status(500).json({
       success: false,
-
       message:
         getErrorMessage(
           error,
@@ -546,6 +689,7 @@ async function createDonation(req, res) {
     });
   }
 }
+
 
 /* =========================================================
    M-PESA CALLBACK
@@ -635,6 +779,13 @@ async function mpesaCallback(req, res) {
           ) || ""
         );
 
+      donation.paymentReference =
+        donation.mpesaReceiptNumber ||
+        donation.checkoutRequestId;
+
+      donation.providerTransactionId =
+        donation.mpesaReceiptNumber || "";
+
       donation.status =
         "completed";
     } else if (resultCode === "1032") {
@@ -646,6 +797,9 @@ async function mpesaCallback(req, res) {
     }
 
     await donation.save();
+
+    // Notify admin dashboard.
+    emitDonationUpdate(req, donation);
 
     console.log(
       "M-PESA DONATION UPDATED:",
@@ -670,6 +824,7 @@ async function mpesaCallback(req, res) {
   }
 }
 
+
 /* =========================================================
    KCB CALLBACK
    POST /api/donations/kcb/callback
@@ -686,8 +841,7 @@ async function kcbCallback(req, res) {
       )
     );
 
-    const data =
-      req.body || {};
+    const data = req.body || {};
 
     const reference =
       data.reference ||
@@ -715,14 +869,15 @@ async function kcbCallback(req, res) {
               kcbTransactionId:
                 reference,
             },
+            {
+              paymentReference:
+                reference,
+            },
           ],
         });
     }
 
-    if (
-      !donation &&
-      transactionId
-    ) {
+    if (!donation && transactionId) {
       donation =
         await Donation.findOne({
           kcbTransactionId:
@@ -790,6 +945,17 @@ async function kcbCallback(req, res) {
     donation.callbackData =
       data;
 
+    donation.providerTransactionId =
+      transactionId ||
+      donation.kcbTransactionId ||
+      "";
+
+    donation.paymentReference =
+      reference ||
+      donation.kcbReference ||
+      donation.kcbTransactionId ||
+      String(donation._id);
+
     donation.resultDescription =
       data.message ||
       data.ResponseDescription ||
@@ -797,6 +963,8 @@ async function kcbCallback(req, res) {
       "";
 
     await donation.save();
+
+    emitDonationUpdate(req, donation);
 
     return res.json({
       success: true,
@@ -817,6 +985,7 @@ async function kcbCallback(req, res) {
   }
 }
 
+
 /* =========================================================
    AIRTEL CALLBACK
    POST /api/donations/airtel/callback
@@ -833,8 +1002,7 @@ async function airtelCallback(req, res) {
       )
     );
 
-    const data =
-      req.body || {};
+    const data = req.body || {};
 
     const reference =
       data.reference ||
@@ -863,6 +1031,10 @@ async function airtelCallback(req, res) {
             },
             {
               airtelTransactionId:
+                reference,
+            },
+            {
+              paymentReference:
                 reference,
             },
           ],
@@ -942,6 +1114,17 @@ async function airtelCallback(req, res) {
     donation.callbackData =
       data;
 
+    donation.providerTransactionId =
+      transactionId ||
+      donation.airtelTransactionId ||
+      "";
+
+    donation.paymentReference =
+      reference ||
+      donation.airtelReference ||
+      donation.airtelTransactionId ||
+      String(donation._id);
+
     donation.resultDescription =
       data.message ||
       data.statusMessage ||
@@ -950,6 +1133,8 @@ async function airtelCallback(req, res) {
       "";
 
     await donation.save();
+
+    emitDonationUpdate(req, donation);
 
     return res.json({
       success: true,
@@ -970,6 +1155,7 @@ async function airtelCallback(req, res) {
   }
 }
 
+
 /* =========================================================
    DONATION STATUS
    GET /api/donations/status/:id
@@ -980,17 +1166,11 @@ async function getDonationStatus(req, res) {
     const { id } =
       req.params;
 
-    console.log(
-      "CHECKING DONATION STATUS:",
-      id
-    );
-
     let donation =
       await Donation.findOne({
-        checkoutRequestId:
-          id,
+        checkoutRequestId: id,
       }).select(
-        "-callbackData"
+        "-callbackData -providerResponse"
       );
 
     if (!donation) {
@@ -999,7 +1179,7 @@ async function getDonationStatus(req, res) {
           await Donation.findById(
             id
           ).select(
-            "-callbackData"
+            "-callbackData -providerResponse"
           );
       } catch {
         donation = null;
@@ -1034,6 +1214,7 @@ async function getDonationStatus(req, res) {
     });
   }
 }
+
 
 /* =========================================================
    QUERY M-PESA
@@ -1100,7 +1281,18 @@ async function queryDonationPayment(
     donation.resultDescription =
       result?.ResultDesc || "";
 
+    if (resultCode === "0") {
+      donation.callbackReceived =
+        true;
+
+      donation.paymentReference =
+        donation.mpesaReceiptNumber ||
+        donation.checkoutRequestId;
+    }
+
     await donation.save();
+
+    emitDonationUpdate(req, donation);
 
     return res.json({
       success: true,
@@ -1124,7 +1316,6 @@ async function queryDonationPayment(
 
     return res.status(500).json({
       success: false,
-
       message:
         getErrorMessage(
           error,
@@ -1133,6 +1324,7 @@ async function queryDonationPayment(
     });
   }
 }
+
 
 /* =========================================================
    BANK DONATION
@@ -1199,6 +1391,13 @@ async function createBankDonation(
         .slice(-8)
         .toUpperCase()}`;
 
+    donation.paymentReference =
+      donation.bankReference;
+
+    donation.bankName =
+      process.env.DONATION_BANK_NAME ||
+      "KCB Bank";
+
     donation.resultDescription =
       "Awaiting bank transfer confirmation.";
 
@@ -1206,6 +1405,8 @@ async function createBankDonation(
       "processing";
 
     await donation.save();
+
+    emitDonationUpdate(req, donation);
 
     return res.status(200).json({
       success: true,
@@ -1252,7 +1453,6 @@ async function createBankDonation(
 
     return res.status(500).json({
       success: false,
-
       message:
         getErrorMessage(
           error,
@@ -1261,6 +1461,7 @@ async function createBankDonation(
     });
   }
 }
+
 
 /* =========================================================
    EXPORTS

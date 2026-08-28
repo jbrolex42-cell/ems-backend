@@ -1,48 +1,222 @@
-const express = require('express');
+const express = require("express");
+
 const router = express.Router();
+
 const {
-  getDashboardStats, getAllUsers, getSingleUser, updateUser, deleteUser,
-  getAllEmergencies, getAdminEmergency, reassignAmbulance,
-  getAmbulanceFleet, getHospitals, createHospital, updateHospital,
-  getMemberships, getSystemHealth, broadcastMessage, exportEmergencies,
-  createAdmin, createAmbulance, updateAmbulanceLocation
-} = require('../controllers/adminController');
-const { protect } = require('../middleware/authMiddleware');
-const { adminMiddleware } = require('../middleware/adminMiddleware');
+  // Dashboard
+  getDashboardStats,
+  getSystemHealth,
+  broadcastMessage,
 
-router.use(protect, adminMiddleware);
+  // Donations
+  getDonationStats,
+  getAllDonations,
+  getAdminDonation,
 
-// Stats & health
-router.get('/stats', getDashboardStats);
-router.get('/system-health', getSystemHealth);
-router.post('/broadcast', broadcastMessage);
+  // Users
+  getAllUsers,
+  getSingleUser,
+  updateUser,
+  deleteUser,
+  createAdmin,
 
-// Users
-router.get('/users', getAllUsers);
-router.get('/users/:id', getSingleUser);
-router.put('/users/:id', updateUser);
-router.delete('/users/:id', deleteUser);
-router.post('/create-admin', createAdmin);
+  // Emergencies
+  getAllEmergencies,
+  getAdminEmergency,
+  reassignAmbulance,
 
-// Emergencies
-router.get('/emergencies', getAllEmergencies);
-router.get('/emergencies/:id', getAdminEmergency);
-router.put('/emergencies/:id/reassign', reassignAmbulance);
+  // Fleet
+  getAmbulanceFleet,
+  createAmbulance,
+  updateAmbulanceLocation,
 
-// Fleet
-router.get('/fleet', getAmbulanceFleet);
-router.post('/fleet', createAmbulance);
-router.put('/fleet/:id/location', updateAmbulanceLocation);
+  // Hospitals
+  getHospitals,
+  createHospital,
+  updateHospital,
 
-// Hospitals
-router.get('/hospitals', getHospitals);
-router.post('/hospitals', createHospital);
-router.put('/hospitals/:id', updateHospital);
+  // Memberships
+  getMemberships,
 
-// Memberships
-router.get('/memberships', getMemberships);
+  // Export
+  exportEmergencies,
+} = require("../controllers/adminController");
 
-// Export
-router.get('/export/emergencies', exportEmergencies);
+const {
+  protect,
+} = require("../middleware/authMiddleware");
+
+const {
+  adminMiddleware,
+} = require("../middleware/adminMiddleware");
+
+router.use(
+  protect,
+  adminMiddleware
+);
+
+router.get(
+  "/stats",
+  getDashboardStats
+);
+
+router.get(
+  "/system-health",
+  getSystemHealth
+);
+
+router.post(
+  "/broadcast",
+  broadcastMessage
+);
+
+router.get(
+  "/donations/stats",
+  getDonationStats
+);
+
+// GET /api/admin/donations
+router.get(
+  "/donations",
+  getAllDonations
+);
+
+// GET /api/admin/donations/:id
+router.get(
+  "/donations/:id",
+  getAdminDonation
+);
+
+/*
+ * =========================================================
+ * USERS
+ * =========================================================
+ */
+
+// GET /api/admin/users
+router.get(
+  "/users",
+  getAllUsers
+);
+
+// GET /api/admin/users/:id
+router.get(
+  "/users/:id",
+  getSingleUser
+);
+
+// PUT /api/admin/users/:id
+router.put(
+  "/users/:id",
+  updateUser
+);
+
+// DELETE /api/admin/users/:id
+router.delete(
+  "/users/:id",
+  deleteUser
+);
+
+// POST /api/admin/create-admin
+router.post(
+  "/create-admin",
+  createAdmin
+);
+
+/*
+ * =========================================================
+ * EMERGENCIES
+ * =========================================================
+ */
+
+// GET /api/admin/emergencies
+router.get(
+  "/emergencies",
+  getAllEmergencies
+);
+
+// GET /api/admin/emergencies/:id
+router.get(
+  "/emergencies/:id",
+  getAdminEmergency
+);
+
+// PUT /api/admin/emergencies/:id/reassign
+router.put(
+  "/emergencies/:id/reassign",
+  reassignAmbulance
+);
+
+/*
+ * =========================================================
+ * AMBULANCE FLEET
+ * =========================================================
+ */
+
+// GET /api/admin/fleet
+router.get(
+  "/fleet",
+  getAmbulanceFleet
+);
+
+// POST /api/admin/fleet
+router.post(
+  "/fleet",
+  createAmbulance
+);
+
+// PUT /api/admin/fleet/:id/location
+router.put(
+  "/fleet/:id/location",
+  updateAmbulanceLocation
+);
+
+/*
+ * =========================================================
+ * HOSPITALS
+ * =========================================================
+ */
+
+// GET /api/admin/hospitals
+router.get(
+  "/hospitals",
+  getHospitals
+);
+
+// POST /api/admin/hospitals
+router.post(
+  "/hospitals",
+  createHospital
+);
+
+// PUT /api/admin/hospitals/:id
+router.put(
+  "/hospitals/:id",
+  updateHospital
+);
+
+/*
+ * =========================================================
+ * MEMBERSHIPS
+ * =========================================================
+ */
+
+// GET /api/admin/memberships
+router.get(
+  "/memberships",
+  getMemberships
+);
+
+/*
+ * =========================================================
+ * EXPORT
+ * =========================================================
+ */
+
+// GET /api/admin/export/emergencies
+router.get(
+  "/export/emergencies",
+  exportEmergencies
+);
 
 module.exports = router;
