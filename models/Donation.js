@@ -1,4 +1,4 @@
-import mongoose from "mongoose";
+const mongoose = require("mongoose");
 
 const donationSchema = new mongoose.Schema(
   {
@@ -60,10 +60,7 @@ const donationSchema = new mongoose.Schema(
     },
 
     /*
-     * Generic payment reference.
-     *
-     * This allows the same donation record
-     * to support different payment providers.
+     * General payment information
      */
     paymentReference: {
       type: String,
@@ -71,15 +68,15 @@ const donationSchema = new mongoose.Schema(
       index: true,
     },
 
-    /*
-     * Provider transaction/reference IDs.
-     */
     providerTransactionId: {
       type: String,
       default: "",
       index: true,
     },
 
+    /*
+     * M-PESA request information
+     */
     merchantRequestId: {
       type: String,
       default: "",
@@ -91,9 +88,6 @@ const donationSchema = new mongoose.Schema(
       index: true,
     },
 
-    /*
-     * M-PESA
-     */
     mpesaReceiptNumber: {
       type: String,
       default: "",
@@ -131,7 +125,7 @@ const donationSchema = new mongoose.Schema(
     },
 
     /*
-     * Manual bank transfer.
+     * Manual bank transfer
      */
     bankReference: {
       type: String,
@@ -146,7 +140,7 @@ const donationSchema = new mongoose.Schema(
     },
 
     /*
-     * Provider response information.
+     * Provider response information
      */
     resultCode: {
       type: String,
@@ -178,4 +172,4 @@ const donationSchema = new mongoose.Schema(
   }
 );
 
-export default mongoose.model("Donation", donationSchema);
+module.exports = mongoose.model("Donation", donationSchema);
