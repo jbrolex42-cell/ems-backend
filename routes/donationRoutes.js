@@ -12,17 +12,17 @@ const router = express.Router();
 /**
  * POST
  *
- * Start donation / STK Push
+ * Start donation / M-PESA STK Push
  */
 router.post(
-  "/",
+  "/mpesa/stkpush",
   createDonation
 );
 
 /**
  * POST
  *
- * Safaricom M-Pesa callback
+ * Safaricom M-PESA callback
  */
 router.post(
   "/mpesa/callback",
@@ -42,7 +42,7 @@ router.get(
 /**
  * GET
  *
- * Query the M-Pesa transaction directly.
+ * Query the M-PESA transaction directly.
  */
 router.get(
   "/:id/query",
