@@ -1,52 +1,32 @@
-import express from "express";
+const express = require('express');
 
-import {
+const {
   createDonation,
   mpesaCallback,
   getDonationStatus,
   queryDonationPayment,
-} from "../controllers/donationController.js";
+} = require('../controllers/donationController');
 
 const router = express.Router();
 
-/**
- * POST
- *
- * Start donation / M-PESA STK Push
- */
-router.post(
-  "/mpesa/stkpush",
-  createDonation
-);
+// Test
+router.get('/test', (req, res) => {
+  res.json({
+    success: true,
+    message: 'Donation routes are working'
+  });
+});
 
-/**
- * POST
- *
- * Safaricom M-PESA callback
- */
-router.post(
-  "/mpesa/callback",
-  mpesaCallback
-);
+// M-PESA STK Push
+router.post('/mpesa/stkpush', createDonation);
 
-/**
- * GET
- *
- * Check donation status
- */
-router.get(
-  "/:id/status",
-  getDonationStatus
-);
+// Safaricom M-PESA callback
+router.post('/mpesa/callback', mpesaCallback);
 
-/**
- * GET
- *
- * Query the M-PESA transaction directly.
- */
-router.get(
-  "/:id/query",
-  queryDonationPayment
-);
+// Check donation status
+router.get('/:id/status', getDonationStatus);
 
-export default router;
+// Query M-PESA transaction
+router.get('/:id/query', queryDonationPayment);
+
+module.exports = router;
