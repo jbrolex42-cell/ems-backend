@@ -17,8 +17,8 @@ const donationSchema = new mongoose.Schema(
 
     phone: {
       type: String,
-      required: true,
       trim: true,
+      default: "",
     },
 
     amount: {
@@ -29,14 +29,21 @@ const donationSchema = new mongoose.Schema(
 
     purpose: {
       type: String,
-      default: "Emergency Response",
       trim: true,
+      default: "Emergency Response",
     },
 
     paymentMethod: {
       type: String,
-      enum: ["mpesa", "bank"],
+      enum: [
+        "mpesa",
+        "kcb",
+        "airtel",
+        "bank",
+      ],
+      required: true,
       default: "mpesa",
+      index: true,
     },
 
     status: {
@@ -49,6 +56,28 @@ const donationSchema = new mongoose.Schema(
         "cancelled",
       ],
       default: "pending",
+      index: true,
+    },
+
+    /*
+     * Generic payment reference.
+     *
+     * This allows the same donation record
+     * to support different payment providers.
+     */
+    paymentReference: {
+      type: String,
+      default: "",
+      index: true,
+    },
+
+    /*
+     * Provider transaction/reference IDs.
+     */
+    providerTransactionId: {
+      type: String,
+      default: "",
+      index: true,
     },
 
     merchantRequestId: {
@@ -62,6 +91,9 @@ const donationSchema = new mongoose.Schema(
       index: true,
     },
 
+    /*
+     * M-PESA
+     */
     mpesaReceiptNumber: {
       type: String,
       default: "",
@@ -72,6 +104,50 @@ const donationSchema = new mongoose.Schema(
       default: "",
     },
 
+    /*
+     * KCB
+     */
+    kcbTransactionId: {
+      type: String,
+      default: "",
+    },
+
+    kcbReference: {
+      type: String,
+      default: "",
+    },
+
+    /*
+     * Airtel Money
+     */
+    airtelTransactionId: {
+      type: String,
+      default: "",
+    },
+
+    airtelReference: {
+      type: String,
+      default: "",
+    },
+
+    /*
+     * Manual bank transfer.
+     */
+    bankReference: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+
+    bankName: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+
+    /*
+     * Provider response information.
+     */
     resultCode: {
       type: String,
       default: "",
@@ -88,6 +164,11 @@ const donationSchema = new mongoose.Schema(
     },
 
     callbackData: {
+      type: mongoose.Schema.Types.Mixed,
+      default: null,
+    },
+
+    providerResponse: {
       type: mongoose.Schema.Types.Mixed,
       default: null,
     },

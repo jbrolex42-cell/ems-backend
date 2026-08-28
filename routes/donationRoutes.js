@@ -1,32 +1,106 @@
-const express = require('express');
+const express = require("express");
 
 const {
   createDonation,
   mpesaCallback,
+  kcbCallback,
+  airtelCallback,
   getDonationStatus,
   queryDonationPayment,
-} = require('../controllers/donationController');
+  createBankDonation,
+} = require("../controllers/donationController");
 
 const router = express.Router();
 
-// Test
-router.get('/test', (req, res) => {
+/*
+ * Health/test endpoint.
+ */
+router.get("/test", (req, res) => {
   res.json({
     success: true,
-    message: 'Donation routes are working'
+    message: "Donation routes are working",
   });
 });
 
-// M-PESA STK Push
-router.post('/mpesa/stkpush', createDonation);
+/*
+ * ================================
+ * M-PESA
+ * ================================
+ */
 
-// Safaricom M-PESA callback
-router.post('/mpesa/callback', mpesaCallback);
+router.post(
+  "/mpesa/stkpush",
+  createDonation
+);
 
-// Check donation status
-router.get('/status/:id', getDonationStatus);
+router.post(
+  "/mpesa/callback",
+  mpesaCallback
+);
 
-// Query M-PESA transaction
-router.get('/:id/query', queryDonationPayment);
+/*
+ * ================================
+ * KCB
+ * ================================
+ */
+
+router.post(
+  "/kcb/pay",
+  createDonation
+);
+
+router.post(
+  "/kcb/callback",
+  kcbCallback
+);
+
+/*
+ * ================================
+ * AIRTEL MONEY
+ * ================================
+ */
+
+router.post(
+  "/airtel/pay",
+  createDonation
+);
+
+router.post(
+  "/airtel/callback",
+  airtelCallback
+);
+
+/*
+ * ================================
+ * BANK TRANSFER
+ * ================================
+ */
+
+router.post(
+  "/bank",
+  createBankDonation
+);
+
+/*
+ * ================================
+ * PAYMENT STATUS
+ * ================================
+ */
+
+router.get(
+  "/status/:id",
+  getDonationStatus
+);
+
+/*
+ * ================================
+ * M-PESA QUERY
+ * ================================
+ */
+
+router.get(
+  "/:id/query",
+  queryDonationPayment
+);
 
 module.exports = router;
