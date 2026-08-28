@@ -13,8 +13,11 @@ const {
 const router = express.Router();
 
 /*
- * Health/test endpoint.
+ * ================================
+ * HEALTH / TEST
+ * ================================
  */
+
 router.get("/test", (req, res) => {
   res.json({
     success: true,
@@ -28,15 +31,11 @@ router.get("/test", (req, res) => {
  * ================================
  */
 
-router.post(
-  "/mpesa/stkpush",
-  createDonation
-);
+// Start M-PESA STK Push
+router.post("/mpesa/stkpush", createDonation);
 
-router.post(
-  "/mpesa/callback",
-  mpesaCallback
-);
+// M-PESA callback
+router.post("/mpesa/callback", mpesaCallback);
 
 /*
  * ================================
@@ -44,15 +43,11 @@ router.post(
  * ================================
  */
 
-router.post(
-  "/kcb/pay",
-  createDonation
-);
+// Start KCB payment
+router.post("/kcb/pay", createDonation);
 
-router.post(
-  "/kcb/callback",
-  kcbCallback
-);
+// KCB callback
+router.post("/kcb/callback", kcbCallback);
 
 /*
  * ================================
@@ -60,15 +55,11 @@ router.post(
  * ================================
  */
 
-router.post(
-  "/airtel/pay",
-  createDonation
-);
+// Start Airtel Money payment
+router.post("/airtel", createDonation);
 
-router.post(
-  "/airtel/callback",
-  airtelCallback
-);
+// Airtel Money callback
+router.post("/airtel/callback", airtelCallback);
 
 /*
  * ================================
@@ -76,10 +67,8 @@ router.post(
  * ================================
  */
 
-router.post(
-  "/bank",
-  createBankDonation
-);
+// Create bank donation
+router.post("/bank", createBankDonation);
 
 /*
  * ================================
@@ -87,10 +76,8 @@ router.post(
  * ================================
  */
 
-router.get(
-  "/status/:id",
-  getDonationStatus
-);
+// Get donation status
+router.get("/status/:id", getDonationStatus);
 
 /*
  * ================================
@@ -98,9 +85,7 @@ router.get(
  * ================================
  */
 
-router.get(
-  "/:id/query",
-  queryDonationPayment
-);
+// Query M-PESA transaction
+router.get("/:id/query", queryDonationPayment);
 
 module.exports = router;
