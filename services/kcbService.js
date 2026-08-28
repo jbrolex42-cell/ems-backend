@@ -1,37 +1,17 @@
-import axios from "axios";
+const axios = require("axios");
 
-/*
- * KCB configuration.
- *
- * DO NOT hard-code credentials here.
- *
- * Put them in your environment variables.
- */
-
-const KCB_ENVIRONMENT =
-  process.env.KCB_ENVIRONMENT || "sandbox";
-
-const KCB_TOKEN_URL =
-  process.env.KCB_TOKEN_URL ||
+const KCB_TOKEN_ENDPOINT =
+  process.env.KCB_TOKEN_ENDPOINT ||
   "https://accounts.buni.kcbgroup.com/oauth2/token";
 
-const KCB_API_BASE_URL =
-  process.env.KCB_API_BASE_URL || "";
+const KCB_PAYMENT_ENDPOINT =
+  process.env.KCB_PAYMENT_ENDPOINT ||
+  "https://uat.buni.kcbgroup.com/mm/api/request/1.0.0/stkpush";
 
-/**
- * Get KCB OAuth access token.
- *
- * This implementation expects Client Credentials.
- *
- * KCB_CLIENT_ID
- * KCB_CLIENT_SECRET
- */
-export async function getKcbAccessToken() {
-  const clientId =
-    process.env.KCB_CLIENT_ID;
 
-  const clientSecret =
-    process.env.KCB_CLIENT_SECRET;
+async function getKcbAccessToken() {
+  const clientId = process.env.KCB_CLIENT_ID;
+  const clientSecret = process.env.KCB_CLIENT_SECRET;
 
   if (!clientId || !clientSecret) {
     throw new Error(
@@ -43,135 +23,275 @@ export async function getKcbAccessToken() {
     `${clientId}:${clientSecret}`
   ).toString("base64");
 
-  const response = await axios.post(
-    KCB_TOKEN_URL,
-    "grant_type=client_credentials",
-    {
-      headers: {
-        Authorization: `Basic ${credentials}`,
-        "Content-Type":
-          "application/x-www-form-urlencoded",
-      },
-      timeout: 30000,
-    }
-  );
+  try {
+    const response = await axios.post(
+      KCB_TOKEN_ENDPOINT,
+      "grant_type=client_credentials",
+      {
+        headers: {
+          Authorization: `Basic ${credentials}`,
+          "Content-Type":
+            "application/x-www-form-urlencoded",
+          Accept: "application/json",
+        },
 
-  if (!response.data?.access_token) {
+        timeout: 30000,
+      }
+    );
+
+    const accessToken =
+      response.data?.access_token;
+
+    if (!accessToken) {
+      console.error(
+        "KCB TOKEN RESPONSE:",
+        response.data
+      );
+
+      throw new Error(
+        "KCB did not return an access token."
+      );
+    }
+
+    return accessToken;
+  } catch (error) {
+    console.error(
+      "KCB TOKEN ERROR:",
+      error.response?.data ||
+        error.message
+    );
+
     throw new Error(
-      "KCB did not return an access token."
+      error.response?.data?.error_description ||
+        error.response?.data?.message ||
+        error.message ||
+        "Unable to obtain KCB access token."
     );
   }
-
-  return response.data.access_token;
 }
 
-/**
- * Generic KCB API request helper.
- *
- * The exact endpoint and payload depend on the
- * KCB API you subscribe to in Buni.
- */
-export async function kcbRequest({
-  method = "POST",
-  endpoint,
-  data = {},
+async function initiateKcbPayment({
+  phone,
+  amount,
+  reference,
+  description,
 }) {
-  if (!KCB_API_BASE_URL) {
+  if (!KCB_PAYMENT_ENDPOINT) {
     throw new Error(
-      "KCB_API_BASE_URL is missing."
-    );
-  }
-
-  if (!endpoint) {
-    throw new Error(
-      "KCB API endpoint is missing."
+      "KCB_PAYMENT_ENDPOINT is missing."
     );
   }
 
   const accessToken =
     await getKcbAccessToken();
 
-  const response = await axios({
-    method,
-    url: `${KCB_API_BASE_URL}${endpoint}`,
-    data,
-    headers: {
-      Authorization:
-        `Bearer ${accessToken}`,
 
-      "Content-Type":
-        "application/json",
+  const messageId =
+    `EMS_${Date.now()}_${String(
+      reference || ""
+    ).slice(-10)}`;
 
-      Accept:
-        "application/json",
-    },
+  const normalizedPhone =
+    String(phone || "")
+      .replace(/\s+/g, "")
+      .replace(/-/g, "")
+      .replace(/^\+/, "");
 
-    timeout: 30000,
-  });
-
-  return response.data;
-}
-
-/**
- * KCB payment initiation.
- *
- * IMPORTANT:
- * The exact payload must match the KCB API
- * you subscribe to.
- */
-export async function initiateKcbPayment({
-  phone,
-  amount,
-  reference,
-  description,
-}) {
-  const endpoint =
-    process.env.KCB_PAYMENT_ENDPOINT;
-
-  if (!endpoint) {
+  if (!/^2547\d{8}$/.test(normalizedPhone)) {
     throw new Error(
-      "KCB_PAYMENT_ENDPOINT is missing."
+      "KCB requires a valid Safaricom M-PESA number in the format 2547XXXXXXXX."
     );
   }
 
-  return kcbRequest({
-    method: "POST",
+  const paymentAmount =
+    String(Math.round(Number(amount)));
 
-    endpoint,
+  if (
+    !paymentAmount ||
+    Number(paymentAmount) < 1
+  ) {
+    throw new Error(
+      "Invalid KCB payment amount."
+    );
+  }
 
-    data: {
-      phoneNumber: phone,
-      amount: Number(amount),
-      reference,
-      description:
+  const invoiceNumber =
+    String(reference || `EMS${Date.now()}`)
+      .replace(/[^a-zA-Z0-9]/g, "")
+      .slice(-12);
+
+  const callbackUrl =
+    process.env.KCB_CALLBACK_URL;
+
+  if (!callbackUrl) {
+    throw new Error(
+      "KCB_CALLBACK_URL is missing."
+    );
+  }
+
+
+  const requestBody = {
+    phoneNumber: normalizedPhone,
+
+    amount: paymentAmount,
+
+    invoiceNumber,
+
+    sharedShortCode: true,
+
+    orgShortCode:
+      process.env.KCB_ORG_SHORT_CODE || "",
+
+    orgPassKey:
+      process.env.KCB_ORG_PASS_KEY || "",
+
+    callbackUrl,
+
+    transactionDescription:
+      String(
         description ||
-        "EMS Kenya Donation",
-    },
-  });
-}
+          "EMS Donation"
+      ).slice(0, 13),
+  };
 
-/**
- * KCB transaction status.
- */
-export async function queryKcbPayment(
-  transactionId
-) {
-  const endpoint =
-    process.env.KCB_QUERY_ENDPOINT;
+  const headers = {
+    Authorization:
+      `Bearer ${accessToken}`,
 
-  if (!endpoint) {
+    "Content-Type":
+      "application/json",
+
+    Accept:
+      "application/json",
+
+    routeCode:
+      process.env.KCB_ROUTE_CODE || "207",
+
+    operation:
+      "STKPush",
+
+    messageId,
+  };
+
+  console.log(
+    "KCB STK PUSH REQUEST:",
+    {
+      endpoint:
+        KCB_PAYMENT_ENDPOINT,
+
+      phoneNumber:
+        normalizedPhone,
+
+      amount:
+        paymentAmount,
+
+      invoiceNumber,
+
+      callbackUrl,
+
+      routeCode:
+        headers.routeCode,
+
+      operation:
+        headers.operation,
+
+      messageId,
+    }
+  );
+
+  try {
+    const response =
+      await axios.post(
+        KCB_PAYMENT_ENDPOINT,
+        requestBody,
+        {
+          headers,
+          timeout: 30000,
+        }
+      );
+
+    console.log(
+      "KCB STK PUSH RESPONSE:",
+      response.data
+    );
+
+
+    const kcbResponse =
+      response.data?.response ||
+      response.data;
+
+    return {
+      success:
+        String(
+          kcbResponse?.ResponseCode
+        ) === "0",
+
+      transactionId:
+        kcbResponse?.CheckoutRequestID ||
+        kcbResponse?.MerchantRequestID ||
+        "",
+
+      requestId:
+        kcbResponse?.MerchantRequestID ||
+        "",
+
+      reference:
+        invoiceNumber,
+
+      checkoutRequestId:
+        kcbResponse?.CheckoutRequestID ||
+        "",
+
+      merchantRequestId:
+        kcbResponse?.MerchantRequestID ||
+        "",
+
+      message:
+        kcbResponse?.CustomerMessage ||
+        kcbResponse?.ResponseDescription ||
+        "KCB payment request submitted.",
+
+      ResponseCode:
+        kcbResponse?.ResponseCode,
+
+      ResponseDescription:
+        kcbResponse?.ResponseDescription,
+
+      CustomerMessage:
+        kcbResponse?.CustomerMessage,
+
+      raw:
+        response.data,
+    };
+  } catch (error) {
+    console.error(
+      "KCB STK PUSH ERROR:",
+      error.response?.data ||
+        error.message
+    );
+
+    const apiError =
+      error.response?.data;
+
     throw new Error(
-      "KCB_QUERY_ENDPOINT is missing."
+      apiError?.response?.ResponseDescription ||
+        apiError?.response?.CustomerMessage ||
+        apiError?.message ||
+        apiError?.error_description ||
+        error.message ||
+        "Unable to initiate KCB M-PESA payment."
     );
   }
-
-  return kcbRequest({
-    method: "POST",
-
-    endpoint,
-
-    data: {
-      transactionId,
-    },
-  });
 }
+
+async function queryKcbPayment() {
+  throw new Error(
+    "KCB payment query endpoint has not been configured for MpesaExpressAPIService."
+  );
+}
+
+module.exports = {
+  getKcbAccessToken,
+  initiateKcbPayment,
+  queryKcbPayment,
+};
