@@ -145,6 +145,7 @@ app.use('/api/emt', require('./routes/emtRoutes'));
 app.use('/api/updates', require("./routes/updatesRoutes"));
 app.use('/api/uploads', require('./routes/uploadRoutes'));
 app.use('/api/notifications', require('./routes/notificationRoutes'));
+app.use('/api/donations', require('./routes/donationRoutes'));
 
 //
 // HEALTH CHECK
