@@ -1,3 +1,4 @@
+```js
 import Donation from "../models/Donation.js";
 
 import {
@@ -103,18 +104,16 @@ export async function createDonation(req, res) {
     });
 
     /**
-     * IMPORTANT:
-     *
-     * This is the account/reference that identifies
+     * Account/reference that identifies
      * the donation.
      *
-     * Your PayBill itself is configured in:
+     * PayBill itself is configured in:
      *
      * MPESA_SHORTCODE
      *
-     * Your account/reference is:
+     * Account/reference:
      *
-     * 1296571637
+     * MPESA_ACCOUNT_REFERENCE
      */
     const accountReference =
       process.env.MPESA_ACCOUNT_REFERENCE ||
@@ -216,6 +215,10 @@ export async function mpesaCallback(req, res) {
     const resultDesc =
       stkCallback.ResultDesc || "";
 
+    /**
+     * Find the donation using the
+     * M-Pesa CheckoutRequestID.
+     */
     const donation =
       await Donation.findOne({
         checkoutRequestId,
@@ -278,6 +281,12 @@ export async function mpesaCallback(req, res) {
 
     await donation.save();
 
+    console.log(
+      "DONATION UPDATED:",
+      donation._id,
+      donation.status
+    );
+
     return res.json({
       ResultCode: 0,
       ResultDesc: "Accepted",
@@ -300,6 +309,18 @@ export async function mpesaCallback(req, res) {
 
 /**
  * Get donation status.
+ *
+ * IMPORTANT:
+ * The frontend is sending the M-Pesa
+ * CheckoutRequestID:
+ *
+ * ws_CO_280820261623531141999547
+ *
+ * Therefore we must search using:
+ *
+ * checkoutRequestId
+ *
+ * NOT Donation.findById().
  */
 export async function getDonationStatus(
   req,
@@ -308,10 +329,19 @@ export async function getDonationStatus(
   try {
     const { id } = req.params;
 
+    console.log(
+      "CHECKING DONATION STATUS:",
+      id
+    );
+
+    /**
+     * Find the donation by M-Pesa
+     * CheckoutRequestID.
+     */
     const donation =
-      await Donation.findById(id).select(
-        "-callbackData"
-      );
+      await Donation.findOne({
+        checkoutRequestId: id,
+      }).select("-callbackData");
 
     if (!donation) {
       return res.status(404).json({
@@ -370,6 +400,10 @@ export async function queryDonationPayment(
   try {
     const { id } = req.params;
 
+    /**
+     * This route still uses the MongoDB
+     * donation ID.
+     */
     const donation =
       await Donation.findById(id);
 
@@ -435,3 +469,4 @@ export async function queryDonationPayment(
     });
   }
 }
+```

@@ -24,7 +24,7 @@ router.post('/mpesa/stkpush', createDonation);
 router.post('/mpesa/callback', mpesaCallback);
 
 // Check donation status
-router.get('/:id/status', getDonationStatus);
+router.get('/status/:id', getDonationStatus);
 
 // Query M-PESA transaction
 router.get('/:id/query', queryDonationPayment);
