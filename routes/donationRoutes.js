@@ -31,8 +31,8 @@ router.get("/test", (req, res) => {
  * ================================
  */
 
-// Start M-PESA STK Push
-router.post("/mpesa/stkpush", createDonation);
+// Start M-PESA payment
+router.post("/mpesa", createDonation);
 
 // M-PESA callback
 router.post("/mpesa/callback", mpesaCallback);
@@ -44,7 +44,7 @@ router.post("/mpesa/callback", mpesaCallback);
  */
 
 // Start KCB payment
-router.post("/kcb/pay", createDonation);
+router.post("/kcb", createDonation);
 
 // KCB callback
 router.post("/kcb/callback", kcbCallback);
